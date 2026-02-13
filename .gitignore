@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.idea/
 
 ### Mac OS ###
 .DS_Store
