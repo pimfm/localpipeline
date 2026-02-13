@@ -123,7 +123,7 @@ function Dashboard({
     if (item) dispatchItem(item);
   }, [items, dispatchItem]);
 
-  const { selectedIndex, mode } = useNavigation(items.length, { onEnter, onComplete, onDispatch, onRefresh });
+  const { selectedIndex, mode, breadcrumbs, canGoBack, canGoForward } = useNavigation(items.length, { onEnter, onComplete, onDispatch, onRefresh });
   selectedRef.current = selectedIndex;
   const sources = [...new Set(items.map((i) => i.source))].join(" | ");
   const selectedItem = items[selectedIndex]!;
@@ -131,7 +131,19 @@ function Dashboard({
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="cyan">
       <Box paddingX={1} justifyContent="space-between">
-        <Text bold> work pipeline</Text>
+        <Box>
+          <Text bold> work pipeline  </Text>
+          {breadcrumbs.length > 1 && (
+            <>
+              {breadcrumbs.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <Text dimColor> / </Text>}
+                  <Text color={i === breadcrumbs.length - 1 ? "cyan" : undefined} dimColor={i !== breadcrumbs.length - 1}>{crumb}</Text>
+                </React.Fragment>
+              ))}
+            </>
+          )}
+        </Box>
         <Box>
           {isRefreshing && <Text color="cyan">refreshing...  </Text>}
           {flashMessage && <Text color="yellow">{flashMessage}  </Text>}
@@ -168,7 +180,7 @@ function Dashboard({
         </Box>
       )}
 
-      <Footer />
+      <Footer canGoBack={canGoBack} canGoForward={canGoForward} />
     </Box>
   );
 }
