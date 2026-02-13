@@ -1,14 +1,28 @@
 import type { WorkItem } from "../../model/work-item.js";
-import type { WorkItemProvider } from "../provider.js";
+import type { WorkItemProvider, Board } from "../provider.js";
 import type { TrelloMember, TrelloCard, TrelloBoard, TrelloList } from "./trello-types.js";
 
 export class TrelloProvider implements WorkItemProvider {
   name = "Trello";
+  private boardFilter?: string;
 
   constructor(
     private apiKey: string,
     private token: string,
   ) {}
+
+  setBoardFilter(boardId: string): void {
+    this.boardFilter = boardId;
+  }
+
+  async fetchBoards(): Promise<Board[]> {
+    const member = await this.get<TrelloMember>("/members/me");
+    const boards = await this.get<TrelloBoard[]>(`/members/${member.id}/boards`, {
+      fields: "id,name",
+      filter: "open",
+    });
+    return boards.map((b) => ({ id: b.id, name: b.name }));
+  }
 
   private params(): URLSearchParams {
     return new URLSearchParams({ key: this.apiKey, token: this.token });
@@ -28,13 +42,17 @@ export class TrelloProvider implements WorkItemProvider {
 
   async fetchAssignedItems(): Promise<WorkItem[]> {
     const member = await this.get<TrelloMember>("/members/me");
-    const cards = await this.get<TrelloCard[]>(`/members/${member.id}/cards`, {
+    const allCards = await this.get<TrelloCard[]>(`/members/${member.id}/cards`, {
       fields: "id,name,desc,shortUrl,idList,labels,idBoard",
     });
 
-    if (cards.length === 0) return [];
+    const filteredByBoard = this.boardFilter
+      ? allCards.filter((c) => c.idBoard === this.boardFilter)
+      : allCards;
 
-    const boardIds = [...new Set(cards.map((c) => c.idBoard))];
+    if (filteredByBoard.length === 0) return [];
+
+    const boardIds = [...new Set(filteredByBoard.map((c) => c.idBoard))];
     const boardNames = new Map<string, string>();
     const listNames = new Map<string, string>();
 
@@ -50,6 +68,12 @@ export class TrelloProvider implements WorkItemProvider {
         }
       }),
     );
+
+    const excludedLists = new Set(["done", "in review"]);
+    const cards = filteredByBoard.filter((c) => {
+      const listName = listNames.get(c.idList)?.toLowerCase();
+      return !listName || !excludedLists.has(listName);
+    });
 
     return cards.map((card) => ({
       id: card.id.slice(0, 8),

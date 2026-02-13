@@ -2,12 +2,16 @@ import React from "react";
 import { render } from "ink";
 import { Start } from "./commands/start.js";
 import { TimeStatsCommand } from "./commands/time-stats.js";
+import { WebhookCommand } from "./commands/webhook.js";
 
 const command = process.argv[2];
 const subcommand = process.argv[3];
 
 if (command === "time" && subcommand === "stats") {
   const { waitUntilExit } = render(<TimeStatsCommand />);
+  waitUntilExit();
+} else if (command === "webhook") {
+  const { waitUntilExit } = render(<WebhookCommand />);
   waitUntilExit();
 } else if (command === "start" || !command) {
   // Enter alternate screen buffer and hide cursor
@@ -23,6 +27,6 @@ if (command === "time" && subcommand === "stats") {
   });
 } else {
   console.error(`Unknown command: ${command}`);
-  console.error("Usage: work [start] | work time stats");
+  console.error("Usage: work [start] | work time stats | work webhook");
   process.exit(1);
 }

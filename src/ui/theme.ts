@@ -10,7 +10,22 @@ export const colors = {
   priorityHigh: "yellow",
   priorityMedium: "blue",
   priorityLow: "gray",
+  agentEmber: "#FF7043",
+  agentTide: "#4FC3F7",
+  agentGale: "#CE93D8",
+  agentTerra: "#81C784",
 } as const;
+
+export function agentStatusColor(status: string): string {
+  switch (status) {
+    case "idle": return colors.dim;
+    case "provisioning": return "yellow";
+    case "working": return "cyan";
+    case "done": return "green";
+    case "error": return "red";
+    default: return colors.dim;
+  }
+}
 
 export function sourceColor(source: string): string {
   switch (source) {

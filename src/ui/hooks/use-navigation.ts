@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useInput, useApp } from "ink";
 
-export type DashboardMode = "normal" | "time-expanded";
+export type DashboardMode = "normal" | "time-expanded" | "agents";
 
 interface NavigationCallbacks {
   onEnter?: () => void;
   onComplete?: () => void;
+  onDispatch?: () => void;
+  onRefresh?: () => void;
 }
 
 export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks) {
@@ -29,10 +31,19 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
       callbacks?.onEnter?.();
     }
     if (input === "t") {
-      setMode((m) => (m === "normal" ? "time-expanded" : "normal"));
+      setMode((m) => (m === "time-expanded" ? "normal" : "time-expanded"));
     }
     if (input === "c") {
       callbacks?.onComplete?.();
+    }
+    if (input === "d") {
+      callbacks?.onDispatch?.();
+    }
+    if (input === "a") {
+      setMode((m) => (m === "agents" ? "normal" : "agents"));
+    }
+    if (input === "r") {
+      callbacks?.onRefresh?.();
     }
   });
 

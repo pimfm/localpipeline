@@ -27,12 +27,19 @@ const RescueTimeConfigSchema = z.object({
   api_key: z.string(),
 });
 
+const AgentsConfigSchema = z.object({
+  repo_root: z.string().optional(),
+  webhook_port: z.number().optional(),
+  webhook_secret: z.string().optional(),
+});
+
 const AppConfigSchema = z.object({
   linear: LinearConfigSchema.optional(),
   trello: TrelloConfigSchema.optional(),
   jira: JiraConfigSchema.optional(),
   wakatime: WakaTimeConfigSchema.optional(),
   rescuetime: RescueTimeConfigSchema.optional(),
+  agents: AgentsConfigSchema.optional(),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;

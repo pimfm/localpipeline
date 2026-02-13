@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { Box, Text } from "ink";
 import { loadConfig } from "../config/config.js";
+import { getBoardMapping } from "../config/board-mappings.js";
 import { createProviders } from "../providers/registry.js";
 import { WakaTimeProvider } from "../providers/analytics/wakatime-provider.js";
 import { RescueTimeProvider } from "../providers/analytics/rescuetime-provider.js";
+import type { Board, WorkItemProvider } from "../providers/provider.js";
 import { App } from "../ui/App.js";
+import { BoardSelector } from "../ui/BoardSelector.js";
 
 export function Start() {
   const config = loadConfig();
@@ -32,8 +35,61 @@ api_token = "your_token"`}</Text>
     );
   }
 
+  const cwd = process.cwd();
+  const mapping = getBoardMapping(cwd);
+
+  if (mapping) {
+    for (const p of providers) {
+      if (p.name === mapping.source && p.setBoardFilter) {
+        p.setBoardFilter(mapping.boardId);
+      }
+    }
+  }
+
   const wakatime = config.wakatime ? new WakaTimeProvider(config.wakatime.api_key) : undefined;
   const rescuetime = config.rescuetime ? new RescueTimeProvider(config.rescuetime.api_key) : undefined;
+
+  const hasBoardSupport = providers.some((p) => p.fetchBoards);
+
+  if (!mapping && hasBoardSupport) {
+    return (
+      <BoardSelectorFlow
+        providers={providers}
+        directory={cwd}
+        wakatime={wakatime}
+        rescuetime={rescuetime}
+      />
+    );
+  }
+
+  return <App providers={providers} wakatime={wakatime} rescuetime={rescuetime} />;
+}
+
+function BoardSelectorFlow({
+  providers,
+  directory,
+  wakatime,
+  rescuetime,
+}: {
+  providers: WorkItemProvider[];
+  directory: string;
+  wakatime?: WakaTimeProvider;
+  rescuetime?: RescueTimeProvider;
+}) {
+  const [selected, setSelected] = useState(false);
+
+  const handleSelected = (_board: Board, _provider: WorkItemProvider) => {
+    for (const p of providers) {
+      if (p.name === _provider.name && p.setBoardFilter) {
+        p.setBoardFilter(_board.id);
+      }
+    }
+    setSelected(true);
+  };
+
+  if (!selected) {
+    return <BoardSelector providers={providers} directory={directory} onSelected={handleSelected} />;
+  }
 
   return <App providers={providers} wakatime={wakatime} rescuetime={rescuetime} />;
 }

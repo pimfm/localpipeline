@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Text, useStdout } from "ink";
 import type { WorkItem } from "../model/work-item.js";
+import type { Agent } from "../model/agent.js";
+import { AGENTS } from "../model/agent.js";
 import { sourceColor } from "./theme.js";
 
 interface Props {
@@ -8,9 +10,10 @@ interface Props {
   selectedIndex: number;
   height: number;
   isTrackingItem?: (item: WorkItem) => boolean;
+  agentForItem?: (item: WorkItem) => Agent | undefined;
 }
 
-export function ItemList({ items, selectedIndex, height, isTrackingItem }: Props) {
+export function ItemList({ items, selectedIndex, height, isTrackingItem, agentForItem }: Props) {
   const { stdout } = useStdout();
   const cols = stdout.columns ?? 80;
   // Panel takes ~50% of terminal width; subtract borders (4) + padding (2) + selector (2) + source (10) + spacing
@@ -42,12 +45,15 @@ export function ItemList({ items, selectedIndex, height, isTrackingItem }: Props
           const actualIndex = scrollOffset + i;
           const isSelected = actualIndex === selectedIndex;
           const tracking = isTrackingItem?.(item);
+          const agent = agentForItem?.(item);
+          const agentPrefix = agent ? AGENTS[agent.name].emoji + " " : "";
           const timerPrefix = tracking ? "⏱ " : "";
           const idStr = `[${item.id}]`;
-          const title = truncate(item.title, titleMaxWidth - timerPrefix.length - idStr.length - 1);
+          const title = truncate(item.title, titleMaxWidth - agentPrefix.length - timerPrefix.length - idStr.length - 1);
           return (
             <Box key={`${item.source}-${item.id}`} height={1} overflow="hidden">
               <Text color="cyan">{isSelected ? "> " : "  "}</Text>
+              {agent && <Text color={AGENTS[agent.name].color}>{AGENTS[agent.name].emoji} </Text>}
               {tracking && <Text color="green">⏱ </Text>}
               <Text dimColor>{idStr}</Text>
               <Text> </Text>
