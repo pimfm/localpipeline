@@ -10,4 +10,5 @@ export interface WorkItemProvider {
   fetchAssignedItems(): Promise<WorkItem[]>;
   fetchBoards?(): Promise<Board[]>;
   setBoardFilter?(boardId: string): void;
+  addComment?(itemId: string, comment: string): Promise<void>;
 }

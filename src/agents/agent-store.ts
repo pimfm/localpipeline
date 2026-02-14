@@ -129,6 +129,14 @@ export class AgentStore {
     this.save();
   }
 
+  incrementRetry(name: AgentName): number {
+    const agent = this.data.agents[name];
+    const count = (agent.retryCount ?? 0) + 1;
+    this.data.agents[name] = { ...agent, retryCount: count };
+    this.save();
+    return count;
+  }
+
   release(name: AgentName): void {
     this.data.agents[name] = defaultAgent(name);
     this.save();

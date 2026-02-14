@@ -1,8 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { appendFileSync, mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import type { Agent, AgentName } from "../../model/agent.js";
 import type { WorkItem } from "../../model/work-item.js";
+import type { WorkItemProvider } from "../../providers/provider.js";
 import { AgentStore } from "../../agents/agent-store.js";
-import { dispatchToAgent } from "../../agents/dispatch.js";
+import { dispatchToAgent, retryAgent } from "../../agents/dispatch.js";
+import { appendEvent } from "../../persistence/agent-log.js";
+
+const MAX_RETRIES = 3;
 
 interface UseAgentsResult {
   agents: Agent[];
@@ -13,7 +20,7 @@ interface UseAgentsResult {
   releaseAgent: (name: AgentName) => void;
 }
 
-export function useAgents(repoRoot?: string): UseAgentsResult {
+export function useAgents(repoRoot?: string, providers?: WorkItemProvider[]): UseAgentsResult {
   const storeRef = useRef<AgentStore | null>(null);
   if (!storeRef.current) {
     storeRef.current = new AgentStore();
@@ -23,15 +30,84 @@ export function useAgents(repoRoot?: string): UseAgentsResult {
   const [agents, setAgents] = useState<Agent[]>(store.getAll());
   const [isDispatching, setIsDispatching] = useState(false);
   const [flashMessage, setFlashMessage] = useState<string | undefined>();
+  const retryingRef = useRef<Set<AgentName>>(new Set());
 
   // Poll for updates every 2s
   useEffect(() => {
+    const root = repoRoot ?? process.cwd();
+
     const interval = setInterval(() => {
       store.reload();
+      const current = store.getAll();
+
+      for (const agent of current) {
+        // Auto-release done agents
+        if (agent.status === "done") {
+          appendEvent({
+            timestamp: new Date().toISOString(),
+            agent: agent.name,
+            event: "released",
+            workItemId: agent.workItemId,
+            workItemTitle: agent.workItemTitle,
+            message: "Auto-released after completion",
+          });
+          store.release(agent.name);
+        }
+
+        // Retry errored agents
+        if (agent.status === "error" && !retryingRef.current.has(agent.name)) {
+          const retryCount = agent.retryCount ?? 0;
+
+          if (retryCount < MAX_RETRIES) {
+            retryingRef.current.add(agent.name);
+            store.incrementRetry(agent.name);
+            appendEvent({
+              timestamp: new Date().toISOString(),
+              agent: agent.name,
+              event: "retry",
+              workItemId: agent.workItemId,
+              workItemTitle: agent.workItemTitle,
+              message: `Retry ${retryCount + 1}/${MAX_RETRIES}: ${agent.error ?? "Unknown error"}`,
+            });
+            retryAgent(agent.name, root, store)
+              .catch(() => {
+                // retryAgent already marks error via markError
+              })
+              .finally(() => {
+                retryingRef.current.delete(agent.name);
+              });
+          } else {
+            // Max retries exceeded — log, comment, and release
+            retryingRef.current.add(agent.name);
+            appendEvent({
+              timestamp: new Date().toISOString(),
+              agent: agent.name,
+              event: "max-retries",
+              workItemId: agent.workItemId,
+              workItemTitle: agent.workItemTitle,
+              message: `Failed after ${MAX_RETRIES} attempts: ${agent.error ?? "Unknown error"}`,
+            });
+            handleMaxRetriesExceeded(agent, providers ?? [])
+              .finally(() => {
+                appendEvent({
+                  timestamp: new Date().toISOString(),
+                  agent: agent.name,
+                  event: "released",
+                  workItemId: agent.workItemId,
+                  workItemTitle: agent.workItemTitle,
+                  message: "Released after max retries exceeded",
+                });
+                store.release(agent.name);
+                retryingRef.current.delete(agent.name);
+              });
+          }
+        }
+      }
+
       setAgents(store.getAll());
     }, 2000);
     return () => clearInterval(interval);
-  }, [store]);
+  }, [store, repoRoot, providers]);
 
   const dispatchItem = useCallback(
     (item: WorkItem) => {
@@ -69,4 +145,29 @@ export function useAgents(repoRoot?: string): UseAgentsResult {
   );
 
   return { agents, dispatchItem, isDispatching, flashMessage, agentForItem, releaseAgent };
+}
+
+async function handleMaxRetriesExceeded(agent: Agent, providers: WorkItemProvider[]): Promise<void> {
+  const errorMsg = agent.error ?? "Unknown error";
+  const comment = `Agent ${agent.name} failed after ${MAX_RETRIES} attempts: ${errorMsg}`;
+
+  // Log to file
+  const logDir = join(homedir(), ".localpipeline", "logs");
+  mkdirSync(logDir, { recursive: true });
+  const logPath = join(logDir, `agent-${agent.name}-failures.log`);
+  appendFileSync(logPath, `[${new Date().toISOString()}] ${comment}\n`);
+
+  // Comment on the work item if we can find a matching provider
+  if (agent.workItemId) {
+    for (const provider of providers) {
+      if (provider.addComment) {
+        try {
+          await provider.addComment(agent.workItemId, comment);
+          break;
+        } catch {
+          // Provider didn't match or API failed — try next
+        }
+      }
+    }
+  }
 }

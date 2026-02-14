@@ -40,6 +40,17 @@ export class TrelloProvider implements WorkItemProvider {
     return res.json();
   }
 
+  async addComment(itemId: string, comment: string): Promise<void> {
+    const params = this.params();
+    params.set("text", comment);
+    const res = await fetch(`https://api.trello.com/1/cards/${itemId}/actions/comments?${params}`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`Trello API error: ${res.status} ${res.statusText}`);
+    }
+  }
+
   async fetchAssignedItems(): Promise<WorkItem[]> {
     const member = await this.get<TrelloMember>("/members/me");
     const allCards = await this.get<TrelloCard[]>(`/members/${member.id}/cards`, {

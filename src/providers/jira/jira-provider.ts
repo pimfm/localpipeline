@@ -12,6 +12,38 @@ export class JiraProvider implements WorkItemProvider {
     private apiToken: string,
   ) {}
 
+  async addComment(itemId: string, comment: string): Promise<void> {
+    const baseUrl = `https://${this.domain}.atlassian.net`;
+    const auth = Buffer.from(`${this.email}:${this.apiToken}`).toString("base64");
+
+    const body = {
+      body: {
+        version: 1,
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: comment }],
+          },
+        ],
+      },
+    };
+
+    const res = await fetch(`${baseUrl}/rest/api/3/issue/${itemId}/comment`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Jira API error: ${res.status} ${res.statusText}`);
+    }
+  }
+
   async fetchAssignedItems(): Promise<WorkItem[]> {
     const baseUrl = `https://${this.domain}.atlassian.net`;
     const auth = Buffer.from(`${this.email}:${this.apiToken}`).toString("base64");

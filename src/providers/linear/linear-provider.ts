@@ -57,6 +57,52 @@ export class LinearProvider implements WorkItemProvider {
       url: issue.url,
     }));
   }
+  async addComment(itemId: string, comment: string): Promise<void> {
+    // Linear work items use `identifier` (e.g. LIN-42) but comments need the internal UUID
+    const lookupQuery = `{
+      issues(filter: { identifier: { eq: "${itemId}" } }, first: 1) {
+        nodes { id }
+      }
+    }`;
+
+    const lookupRes = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.apiKey,
+      },
+      body: JSON.stringify({ query: lookupQuery }),
+    });
+
+    if (!lookupRes.ok) {
+      throw new Error(`Linear API error: ${lookupRes.status} ${lookupRes.statusText}`);
+    }
+
+    const lookupJson = await lookupRes.json() as { data?: { issues: { nodes: { id: string }[] } } };
+    const issueId = lookupJson.data?.issues.nodes[0]?.id;
+    if (!issueId) {
+      throw new Error(`Linear issue not found: ${itemId}`);
+    }
+
+    const mutation = `mutation {
+      commentCreate(input: { issueId: "${issueId}", body: ${JSON.stringify(comment)} }) {
+        success
+      }
+    }`;
+
+    const res = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.apiKey,
+      },
+      body: JSON.stringify({ query: mutation }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Linear API error: ${res.status} ${res.statusText}`);
+    }
+  }
 }
 
 function priorityLabel(priority: number): string {

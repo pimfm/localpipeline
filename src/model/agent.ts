@@ -12,6 +12,7 @@ export interface Agent {
   pid?: number;
   startedAt?: string;
   error?: string;
+  retryCount?: number;
 }
 
 export const AGENTS: Record<AgentName, { display: string; emoji: string; color: string }> = {

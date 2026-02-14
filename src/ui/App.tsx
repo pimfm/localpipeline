@@ -106,7 +106,7 @@ function Dashboard({
   const store = useTimeStore();
   const { activeTimer, toggleTimer, stopTimer, isTrackingItem } = useTimeTracking(store);
   const { analytics, localStats } = useAnalytics(store, wakatime, rescuetime);
-  const { agents, dispatchItem, flashMessage, agentForItem } = useAgents();
+  const { agents, dispatchItem, flashMessage, agentForItem } = useAgents(undefined, providers);
 
   const selectedRef = React.useRef(0);
 
@@ -124,7 +124,7 @@ function Dashboard({
     if (item) dispatchItem(item);
   }, [items, dispatchItem]);
 
-  const { selectedIndex, mode, breadcrumbs, canGoBack } = useNavigation(items.length, { onEnter, onComplete, onDispatch, onRefresh });
+  const { selectedIndex, mode, breadcrumbs, canGoBack, agentSelectedIndex, expandedAgent, agentSubMode, detailScrollOffset } = useNavigation(items.length, { onEnter, onComplete, onDispatch, onRefresh });
   selectedRef.current = selectedIndex;
   const sources = [...new Set(items.map((i) => i.source))].join(" | ");
   const selectedItem = items[selectedIndex]!;
@@ -160,7 +160,7 @@ function Dashboard({
         </Box>
       ) : mode === "agents" ? (
         <Box height={contentHeight + 3} overflow="hidden">
-          <AgentPanel agents={agents} height={contentHeight} />
+          <AgentPanel agents={agents} height={contentHeight} selectedIndex={agentSelectedIndex} expandedAgent={expandedAgent} detailScrollOffset={detailScrollOffset} />
           <DetailPanel item={selectedItem} height={contentHeight} />
         </Box>
       ) : (
@@ -177,7 +177,7 @@ function Dashboard({
         </Box>
       )}
 
-      <Footer canGoBack={canGoBack} />
+      <Footer canGoBack={canGoBack} mode={mode} agentSubMode={agentSubMode} />
     </Box>
   );
 }

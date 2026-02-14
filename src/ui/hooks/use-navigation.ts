@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import { useInput, useApp } from "ink";
+import type { AgentName } from "../../model/agent.js";
+import { AGENT_NAMES } from "../../model/agent.js";
 
 export type DashboardMode = "normal" | "time-expanded" | "agents";
+export type AgentSubMode = "list" | "detail";
 
 export const MODE_LABELS: Record<DashboardMode, string> = {
   "normal": "Dashboard",
@@ -20,6 +23,10 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
   const { exit } = useApp();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [modeStack, setModeStack] = useState<DashboardMode[]>(["normal"]);
+  const [agentSelectedIndex, setAgentSelectedIndex] = useState(0);
+  const [expandedAgent, setExpandedAgent] = useState<AgentName | null>(null);
+  const [agentSubMode, setAgentSubMode] = useState<AgentSubMode>("list");
+  const [detailScrollOffset, setDetailScrollOffset] = useState(0);
 
   const mode = modeStack[modeStack.length - 1]!;
   const canGoBack = modeStack.length > 1;
@@ -41,6 +48,57 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
   const breadcrumbs = modeStack.map((m) => MODE_LABELS[m]);
 
   useInput((input, key) => {
+    // Agent detail mode
+    if (mode === "agents" && agentSubMode === "detail") {
+      if (key.escape || key.backspace || key.delete) {
+        setAgentSubMode("list");
+        setExpandedAgent(null);
+        setDetailScrollOffset(0);
+        return;
+      }
+      if (key.upArrow) {
+        setDetailScrollOffset((o) => Math.max(0, o - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setDetailScrollOffset((o) => o + 1);
+        return;
+      }
+      if (input === "q") {
+        exit();
+        return;
+      }
+      return;
+    }
+
+    // Agent list mode
+    if (mode === "agents") {
+      if (key.escape || input === "a") {
+        navigateBack();
+        return;
+      }
+      if (key.upArrow) {
+        setAgentSelectedIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setAgentSelectedIndex((i) => Math.min(AGENT_NAMES.length - 1, i + 1));
+        return;
+      }
+      if (key.return) {
+        setExpandedAgent(AGENT_NAMES[agentSelectedIndex]!);
+        setAgentSubMode("detail");
+        setDetailScrollOffset(0);
+        return;
+      }
+      if (input === "q") {
+        exit();
+        return;
+      }
+      return;
+    }
+
+    // Normal / time-expanded mode
     if (input === "q" || key.escape) {
       if (canGoBack) {
         navigateBack();
@@ -80,11 +138,7 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
       callbacks?.onDispatch?.();
     }
     if (input === "a") {
-      if (mode === "agents") {
-        navigateBack();
-      } else {
-        navigateTo("agents");
-      }
+      navigateTo("agents");
     }
     if (input === "r") {
       callbacks?.onRefresh?.();
@@ -96,5 +150,14 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
 
   const clampedIndex = Math.min(selectedIndex, Math.max(0, itemCount - 1));
 
-  return { selectedIndex: clampedIndex, mode, breadcrumbs, canGoBack };
+  return {
+    selectedIndex: clampedIndex,
+    mode,
+    breadcrumbs,
+    canGoBack,
+    agentSelectedIndex,
+    expandedAgent,
+    agentSubMode,
+    detailScrollOffset,
+  };
 }
