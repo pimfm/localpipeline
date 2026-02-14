@@ -40,5 +40,14 @@ export function buildClaudePrompt(item: WorkItem, agentName: string): string {
     "Work autonomously. Do not ask for clarification — make reasonable decisions.",
   );
 
+  if (personality) {
+    lines.push(
+      "",
+      `## Personality: ${personality.tagline}`,
+      `- Traits: ${personality.traits.join(", ")}`,
+      `- Working style: ${personality.systemPrompt}`,
+    );
+  }
+
   return lines.join("\n");
 }

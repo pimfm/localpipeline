@@ -6,7 +6,9 @@ import { PERSONALITIES } from "../model/personality.js";
 export function writeClaudeMd(worktreePath: string, agentName: string): void {
   const personality = PERSONALITIES[agentName.toLowerCase() as AgentName];
   const personalitySection = personality
-    ? `\n## Personality\n${personality.systemPrompt}\n`
+    ? `\n### Personality: ${personality.tagline}
+- **Traits**: ${personality.traits.join(", ")}
+- **Working style**: ${personality.systemPrompt}\n`
     : "";
 
   const content = `# fm pipeline
