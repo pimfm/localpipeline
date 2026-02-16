@@ -70,7 +70,7 @@ export function BoardSelector({ providers, directory, onSelected }: Props) {
   if (state.status === "loading") {
     return (
       <Box borderStyle="round" borderColor="cyan" padding={1} flexDirection="column">
-        <Text bold> fm pipeline</Text>
+        <Text bold> work pipeline</Text>
         <Box paddingX={1} paddingY={1}>
           <Spinner label="Fetching available boards..." />
         </Box>
@@ -81,7 +81,7 @@ export function BoardSelector({ providers, directory, onSelected }: Props) {
   if (state.status === "error") {
     return (
       <Box borderStyle="round" borderColor="cyan" padding={1} flexDirection="column">
-        <Text bold> fm pipeline</Text>
+        <Text bold> work pipeline</Text>
         <Box paddingX={1}>
           <Text color="red">{state.message}</Text>
         </Box>
@@ -92,7 +92,7 @@ export function BoardSelector({ providers, directory, onSelected }: Props) {
   return (
     <Box borderStyle="round" borderColor="cyan" flexDirection="column">
       <Box paddingX={1}>
-        <Text bold> fm pipeline</Text>
+        <Text bold> work pipeline</Text>
       </Box>
       <Box paddingX={1} flexDirection="column">
         <Text color="yellow">No board linked to this directory.</Text>

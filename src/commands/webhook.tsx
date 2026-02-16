@@ -23,7 +23,7 @@ export function WebhookCommand({ port, repoRoot }: Props) {
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      <Text bold>fm webhook server</Text>
+      <Text bold>work webhook server</Text>
       <Text>Listening on port {actualPort}</Text>
       <Text dimColor>Repo root: {actualRoot}</Text>
       {secret && <Text dimColor>Webhook secret: configured</Text>}
