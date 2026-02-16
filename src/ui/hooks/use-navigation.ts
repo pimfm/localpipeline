@@ -73,8 +73,12 @@ export function useNavigation(itemCount: number, callbacks?: NavigationCallbacks
 
     // Agent list mode
     if (mode === "agents") {
-      if (key.escape || input === "a") {
+      if (key.escape || input === "a" || input === "b" || key.backspace || key.delete) {
         navigateBack();
+        return;
+      }
+      if (input === "t") {
+        navigateTo("time-expanded");
         return;
       }
       if (key.upArrow) {

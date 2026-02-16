@@ -3,6 +3,7 @@ import { render } from "ink";
 import { Start } from "./commands/start.js";
 import { TimeStatsCommand } from "./commands/time-stats.js";
 import { WebhookCommand } from "./commands/webhook.js";
+import { syncWorktrees } from "./agents/worktree-sync.js";
 
 const command = process.argv[2];
 const subcommand = process.argv[3];
@@ -14,6 +15,8 @@ if (command === "time" && subcommand === "stats") {
   const { waitUntilExit } = render(<WebhookCommand />);
   waitUntilExit();
 } else if (command === "start" || !command) {
+  await syncWorktrees(process.cwd()).catch(() => {});
+
   // Enter alternate screen buffer and hide cursor
   process.stdout.write("\x1b[?1049h");
   process.stdout.write("\x1b[?25l");
