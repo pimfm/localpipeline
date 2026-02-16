@@ -106,7 +106,7 @@ function Dashboard({
   const store = useTimeStore();
   const { activeTimer, toggleTimer, stopTimer, isTrackingItem } = useTimeTracking(store);
   const { analytics, localStats } = useAnalytics(store, wakatime, rescuetime);
-  const { agents, dispatchItem, flashMessage, agentForItem } = useAgents(undefined, providers);
+  const { agents, dispatchItem, flashMessage, agentForItem, retryScheduler } = useAgents(undefined, providers);
 
   const selectedRef = React.useRef(0);
 
@@ -160,7 +160,7 @@ function Dashboard({
         </Box>
       ) : mode === "agents" ? (
         <Box height={contentHeight + 3} overflow="hidden">
-          <AgentPanel agents={agents} height={contentHeight} selectedIndex={agentSelectedIndex} expandedAgent={expandedAgent} detailScrollOffset={detailScrollOffset} />
+          <AgentPanel agents={agents} height={contentHeight} selectedIndex={agentSelectedIndex} expandedAgent={expandedAgent} detailScrollOffset={detailScrollOffset} retryScheduler={retryScheduler} />
           <DetailPanel item={selectedItem} height={contentHeight} />
         </Box>
       ) : (

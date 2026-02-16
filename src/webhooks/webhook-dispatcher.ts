@@ -5,7 +5,9 @@ import type { WorkItem } from "../model/work-item.js";
 import { AgentStore } from "../agents/agent-store.js";
 import { dispatchToAgent } from "../agents/dispatch.js";
 
-const queuePath = join(homedir(), ".localpipeline", "queue.json");
+function queuePath(): string {
+  return join(homedir(), ".localpipeline", "queue.json");
+}
 
 interface QueueData {
   items: WorkItem[];
@@ -13,7 +15,7 @@ interface QueueData {
 
 function loadQueue(): QueueData {
   try {
-    return JSON.parse(readFileSync(queuePath, "utf-8"));
+    return JSON.parse(readFileSync(queuePath(), "utf-8"));
   } catch {
     return { items: [] };
   }
@@ -22,7 +24,7 @@ function loadQueue(): QueueData {
 function saveQueue(data: QueueData): void {
   const dir = join(homedir(), ".localpipeline");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(queuePath, JSON.stringify(data, null, 2));
+  writeFileSync(queuePath(), JSON.stringify(data, null, 2));
 }
 
 export async function webhookDispatch(item: WorkItem, repoRoot: string): Promise<{ dispatched: boolean; agent?: string }> {
@@ -42,6 +44,15 @@ export async function webhookDispatch(item: WorkItem, repoRoot: string): Promise
 
 export function getQueue(): WorkItem[] {
   return loadQueue().items;
+}
+
+/** Remove and return the first item from the queue, or undefined if empty. */
+export function dequeue(): WorkItem | undefined {
+  const queue = loadQueue();
+  if (queue.items.length === 0) return undefined;
+  const [item, ...rest] = queue.items;
+  saveQueue({ items: rest });
+  return item;
 }
 
 export function clearQueue(): void {
