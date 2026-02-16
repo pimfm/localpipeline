@@ -6,6 +6,7 @@ import { AGENTS } from "../model/agent.js";
 import { PERSONALITIES } from "../model/personality.js";
 import { agentStatusColor } from "./theme.js";
 import { AgentDetail } from "./AgentDetail.js";
+import type { RetryScheduler } from "../agents/retry-scheduler.js";
 
 interface Props {
   agents: Agent[];
@@ -13,6 +14,7 @@ interface Props {
   selectedIndex: number;
   expandedAgent: AgentName | null;
   detailScrollOffset: number;
+  retryScheduler?: RetryScheduler;
 }
 
 function elapsed(startedAt?: string): string {
@@ -23,7 +25,7 @@ function elapsed(startedAt?: string): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-export function AgentPanel({ agents, height, selectedIndex, expandedAgent, detailScrollOffset }: Props) {
+export function AgentPanel({ agents, height, selectedIndex, expandedAgent, detailScrollOffset, retryScheduler }: Props) {
   if (expandedAgent) {
     return <AgentDetail agentName={expandedAgent} height={height} scrollOffset={detailScrollOffset} />;
   }
@@ -37,6 +39,9 @@ export function AgentPanel({ agents, height, selectedIndex, expandedAgent, detai
         {agents.map((agent, idx) => {
           const info = AGENTS[agent.name];
           const isSelected = idx === selectedIndex;
+          const retrySeconds = retryScheduler?.secondsUntilRetry(agent.name);
+          const retryCount = agent.retryCount ?? 0;
+
           return (
             <Box key={agent.name} height={1} overflow="hidden">
               <Text color={isSelected ? "cyan" : undefined}>{isSelected ? "▸ " : "  "}</Text>
@@ -63,7 +68,19 @@ export function AgentPanel({ agents, height, selectedIndex, expandedAgent, detai
                   <Text color="yellow">{elapsed(agent.startedAt)}</Text>
                 </>
               )}
-              {agent.error && (
+              {agent.status === "error" && retryCount > 0 && (
+                <>
+                  <Text> </Text>
+                  <Text color="yellow">[{retryCount}/3]</Text>
+                </>
+              )}
+              {agent.status === "error" && retrySeconds !== undefined && retrySeconds > 0 && (
+                <>
+                  <Text> </Text>
+                  <Text color="yellow">retry in {retrySeconds}s</Text>
+                </>
+              )}
+              {agent.error && !retrySeconds && (
                 <>
                   <Text> </Text>
                   <Text color="red">{truncate(agent.error, 30)}</Text>
