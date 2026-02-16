@@ -11,10 +11,10 @@ export function writeClaudeMd(worktreePath: string, agentName: string): void {
 - **Working style**: ${personality.systemPrompt}\n`
     : "";
 
-  const content = `# fm pipeline
+  const content = `# work pipeline
 
 ## Project Overview
-A terminal dashboard CLI (\`fm\`) that aggregates work items from Trello, Linear, and Jira.
+A terminal dashboard CLI (\`work\`) that aggregates work items from Trello, Linear, and Jira.
 Built with TypeScript, React Ink (terminal UI), and Node.js.
 
 ## Tech Stack

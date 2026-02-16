@@ -22,7 +22,7 @@ describe("Dispatch integration", () => {
   it("writes CLAUDE.md to worktree directory", () => {
     writeClaudeMd(tmpDir, "Ember");
     const content = readFileSync(join(tmpDir, "CLAUDE.md"), "utf-8");
-    expect(content).toContain("fm pipeline");
+    expect(content).toContain("work pipeline");
     expect(content).toContain("Ember");
     expect(content).toContain("vitest");
   });
