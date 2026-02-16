@@ -10,9 +10,19 @@ interface GitHubWebhookBody {
     labels?: Array<{ name?: string }>;
     state?: string;
   };
+  pull_request?: {
+    merged?: boolean;
+    title?: string;
+    body?: string;
+    html_url?: string;
+  };
   repository?: {
     full_name?: string;
   };
+}
+
+export interface PrMergeEvent {
+  workItemId: string;
 }
 
 export function parseGitHubWebhook(body: GitHubWebhookBody): WorkItem | undefined {
@@ -32,4 +42,23 @@ export function parseGitHubWebhook(body: GitHubWebhookBody): WorkItem | undefine
     team: body.repository?.full_name,
     url: issue.html_url,
   };
+}
+
+/**
+ * Detect a PR merge event and extract the associated work item ID
+ * from the branch name (agent/{name}/{itemId}-{slug}).
+ */
+export function parseGitHubPrMerge(body: GitHubWebhookBody & { pull_request?: { merged?: boolean; head?: { ref?: string } } }): PrMergeEvent | undefined {
+  if (body.action !== "closed") return undefined;
+  if (!body.pull_request?.merged) return undefined;
+
+  const branch = body.pull_request.head?.ref;
+  if (!branch) return undefined;
+
+  // Branch format: agent/{agentName}/{shortId}-{slug}
+  // shortId can contain hyphens (e.g. LIN-42), slug is always lowercase
+  const match = branch.match(/^agent\/\w+\/(.+?)-[a-z]/);
+  if (!match) return undefined;
+
+  return { workItemId: match[1]! };
 }

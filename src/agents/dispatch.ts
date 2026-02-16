@@ -5,18 +5,21 @@ import { homedir } from "os";
 import { execSync } from "child_process";
 import type { AgentName } from "../model/agent.js";
 import type { WorkItem } from "../model/work-item.js";
+import type { WorkItemProvider } from "../providers/provider.js";
 import { AgentStore } from "./agent-store.js";
 import { branchName, worktreePath } from "./branch-utils.js";
 import { buildClaudePrompt } from "./claude-prompt.js";
 import { writeClaudeMd } from "./claude-md.js";
 import { AGENTS } from "../model/agent.js";
 import { appendEvent } from "../persistence/agent-log.js";
+import { transitionCard } from "./card-transitions.js";
 
 export async function dispatchToAgent(
   agentName: AgentName,
   item: WorkItem,
   repoRoot: string,
   store?: AgentStore,
+  providers?: WorkItemProvider[],
 ): Promise<void> {
   const agentStore = store ?? new AgentStore();
   const branch = branchName(agentName, item.id, item.title);
@@ -37,6 +40,11 @@ export async function dispatchToAgent(
     workItemId: item.id,
     workItemTitle: item.title,
   });
+
+  // Move card to "In Progress" (best-effort, don't block on failure)
+  if (providers?.length) {
+    transitionCard(item.id, "in_progress", providers).catch(() => {});
+  }
 
   try {
     // Fetch latest main from origin
@@ -157,10 +165,16 @@ export async function retryAgent(
   agentName: AgentName,
   repoRoot: string,
   store: AgentStore,
+  providers?: WorkItemProvider[],
 ): Promise<void> {
   const agent = store.getAgent(agentName);
   if (!agent.workItemId || !agent.workItemTitle || !agent.branch) {
     throw new Error(`Agent ${agentName} missing work item info for retry`);
+  }
+
+  // Move card back to "In Progress" on retry (best-effort)
+  if (providers?.length && agent.workItemId) {
+    transitionCard(agent.workItemId, "in_progress", providers).catch(() => {});
   }
 
   const wtPath = worktreePath(repoRoot, agentName);

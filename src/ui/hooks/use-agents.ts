@@ -7,6 +7,7 @@ import type { WorkItem } from "../../model/work-item.js";
 import type { WorkItemProvider } from "../../providers/provider.js";
 import { AgentStore } from "../../agents/agent-store.js";
 import { dispatchToAgent, retryAgent } from "../../agents/dispatch.js";
+import { transitionCard } from "../../agents/card-transitions.js";
 import { appendEvent } from "../../persistence/agent-log.js";
 
 const MAX_RETRIES = 3;
@@ -41,8 +42,11 @@ export function useAgents(repoRoot?: string, providers?: WorkItemProvider[]): Us
       const current = store.getAll();
 
       for (const agent of current) {
-        // Auto-release done agents
+        // Auto-release done agents and move card to "In Review"
         if (agent.status === "done") {
+          if (agent.workItemId && (providers ?? []).length > 0) {
+            transitionCard(agent.workItemId, "in_review", providers ?? []).catch(() => {});
+          }
           appendEvent({
             timestamp: new Date().toISOString(),
             agent: agent.name,
@@ -69,7 +73,7 @@ export function useAgents(repoRoot?: string, providers?: WorkItemProvider[]): Us
               workItemTitle: agent.workItemTitle,
               message: `Retry ${retryCount + 1}/${MAX_RETRIES}: ${agent.error ?? "Unknown error"}`,
             });
-            retryAgent(agent.name, root, store)
+            retryAgent(agent.name, root, store, providers)
               .catch(() => {
                 // retryAgent already marks error via markError
               })
@@ -120,7 +124,7 @@ export function useAgents(repoRoot?: string, providers?: WorkItemProvider[]): Us
       }
 
       setIsDispatching(true);
-      dispatchToAgent(freeAgent, item, root, store).finally(() => {
+      dispatchToAgent(freeAgent, item, root, store, providers).finally(() => {
         store.reload();
         setAgents(store.getAll());
         setIsDispatching(false);

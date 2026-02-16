@@ -1,6 +1,12 @@
 import type { WorkItem } from "../../model/work-item.js";
-import type { WorkItemProvider, Board } from "../provider.js";
+import type { WorkItemProvider, Board, CardStatus } from "../provider.js";
 import type { TrelloMember, TrelloCard, TrelloBoard, TrelloList } from "./trello-types.js";
+
+const STATUS_TO_LIST: Record<CardStatus, string> = {
+  in_progress: "In Progress",
+  in_review: "In Review",
+  done: "Done",
+};
 
 export class TrelloProvider implements WorkItemProvider {
   name = "Trello";
@@ -45,6 +51,37 @@ export class TrelloProvider implements WorkItemProvider {
     params.set("text", comment);
     const res = await fetch(`https://api.trello.com/1/cards/${itemId}/actions/comments?${params}`, {
       method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`Trello API error: ${res.status} ${res.statusText}`);
+    }
+  }
+
+  async moveItem(itemId: string, status: CardStatus): Promise<void> {
+    const targetListName = STATUS_TO_LIST[status];
+
+    // Get the card to find its board
+    const card = await this.get<TrelloCard>(`/cards/${itemId}`, {
+      fields: "idBoard",
+    });
+
+    // Get the board's lists to find the target list by name
+    const lists = await this.get<TrelloList[]>(`/boards/${card.idBoard}/lists`, {
+      fields: "id,name",
+    });
+
+    const targetList = lists.find(
+      (l) => l.name.toLowerCase() === targetListName.toLowerCase(),
+    );
+    if (!targetList) {
+      throw new Error(`Trello list "${targetListName}" not found on board`);
+    }
+
+    // Move the card to the target list
+    const params = this.params();
+    params.set("idList", targetList.id);
+    const res = await fetch(`https://api.trello.com/1/cards/${itemId}?${params}`, {
+      method: "PUT",
     });
     if (!res.ok) {
       throw new Error(`Trello API error: ${res.status} ${res.statusText}`);

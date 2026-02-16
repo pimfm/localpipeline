@@ -4,9 +4,11 @@ import { parseJiraWebhook } from "./handlers/jira-handler.js";
 import { parseLinearWebhook } from "./handlers/linear-handler.js";
 import { parseClickUpWebhook } from "./handlers/clickup-handler.js";
 import { parseAsanaWebhook } from "./handlers/asana-handler.js";
-import { parseGitHubWebhook } from "./handlers/github-handler.js";
+import { parseGitHubWebhook, parseGitHubPrMerge } from "./handlers/github-handler.js";
 import { webhookDispatch } from "./webhook-dispatcher.js";
+import { transitionCard } from "../agents/card-transitions.js";
 import type { WorkItem } from "../model/work-item.js";
+import type { WorkItemProvider } from "../providers/provider.js";
 
 type Parser = (body: any) => WorkItem | undefined;
 
@@ -33,7 +35,7 @@ function json(res: ServerResponse, status: number, body: object): void {
   res.end(JSON.stringify(body));
 }
 
-export function startWebhookServer(port: number, repoRoot: string, secret?: string): ReturnType<typeof createServer> {
+export function startWebhookServer(port: number, repoRoot: string, secret?: string, providers?: WorkItemProvider[]): ReturnType<typeof createServer> {
   const server = createServer(async (req, res) => {
     const url = req.url ?? "";
 
@@ -76,6 +78,17 @@ export function startWebhookServer(port: number, repoRoot: string, secret?: stri
     try {
       const raw = await readBody(req);
       const body = JSON.parse(raw);
+
+      // Handle GitHub PR merge events → move card to "Done"
+      if (provider === "github" && providers?.length) {
+        const prMerge = parseGitHubPrMerge(body);
+        if (prMerge) {
+          const moved = await transitionCard(prMerge.workItemId, "done", providers);
+          json(res, 200, { transitioned: moved, status: "done", item: prMerge.workItemId });
+          return;
+        }
+      }
+
       const item = parser(body);
 
       if (!item) {
