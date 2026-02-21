@@ -33,6 +33,13 @@ pub async fn dispatch(
     ));
 
     // Git operations
+    let _ = append_event(&new_event(
+        agent_name,
+        "provisioning",
+        Some(&item.id),
+        Some(&item.title),
+        Some("Fetching latest from origin/main"),
+    ));
     run_git(repo_root, &["fetch", "origin", "main"]).await?;
 
     // Clean up existing worktree
@@ -55,6 +62,14 @@ pub async fn dispatch(
 
     // Create worktree
     run_git(repo_root, &["worktree", "add", &wt_path, &branch]).await?;
+
+    let _ = append_event(&new_event(
+        agent_name,
+        "worktree-ready",
+        Some(&item.id),
+        Some(&item.title),
+        Some(&format!("Worktree at {wt_path}")),
+    ));
 
     // Write CLAUDE.md
     write_claude_md(Path::new(&wt_path), agent_name)?;
@@ -85,7 +100,7 @@ pub async fn dispatch(
         "working",
         Some(&item.id),
         Some(&item.title),
-        None,
+        Some(&format!("Process started (pid {pid})")),
     ));
 
     // Monitor process in background

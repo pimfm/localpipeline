@@ -29,23 +29,33 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             spans.push(hint("↑↓", "navigate"));
             spans.push(hint("→", "detail"));
             spans.push(hint("←", "items"));
+            spans.push(hint("c", "clear agent"));
             spans.push(hint("q", "quit"));
         }
         ViewMode::AgentDetail(_) => {
             spans.push(hint("↑↓", "scroll"));
             spans.push(hint("←", "agents"));
+            spans.push(hint("c", "clear agent"));
+            spans.push(hint("x", "clear logs"));
             spans.push(hint("q", "quit"));
         }
     }
 
-    // Auto mode indicator
+    // Mode indicator
+    spans.push(Span::raw("  "));
     if app.auto_mode {
-        spans.push(Span::raw("  "));
         spans.push(Span::styled(
             " AUTO ",
             Style::default()
                 .fg(ratatui::style::Color::Black)
                 .bg(ratatui::style::Color::Green),
+        ));
+    } else {
+        spans.push(Span::styled(
+            " MANUAL ",
+            Style::default()
+                .fg(ratatui::style::Color::Black)
+                .bg(ratatui::style::Color::DarkGray),
         ));
     }
 

@@ -45,12 +45,16 @@ pub fn event_color(event: &str) -> Color {
     match event {
         "dispatched" => Color::Blue,
         "provisioning" => Color::Yellow,
+        "worktree-ready" => Color::Yellow,
         "working" => Color::Cyan,
         "done" => Color::Green,
         "error" => Color::Red,
         "retry" => Color::Yellow,
         "max-retries" => Color::Red,
         "released" => Color::Gray,
+        "cleared" => Color::Magenta,
+        "logs-cleared" => Color::DarkGray,
+        "mode-change" => Color::Blue,
         _ => Color::White,
     }
 }

@@ -52,6 +52,8 @@ fn key_to_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('d') => Some(Action::Key(KeyAction::Dispatch)),
         KeyCode::Char('m') => Some(Action::Key(KeyAction::ToggleAutoMode)),
         KeyCode::Char('r') => Some(Action::Key(KeyAction::Refresh)),
+        KeyCode::Char('c') => Some(Action::Key(KeyAction::ClearAgent)),
+        KeyCode::Char('x') => Some(Action::Key(KeyAction::ClearLogs)),
         KeyCode::Enter => Some(Action::Key(KeyAction::Select)),
         KeyCode::Esc => Some(Action::Key(KeyAction::Left)),
         _ => None,
@@ -68,4 +70,6 @@ pub enum KeyAction {
     Dispatch,
     ToggleAutoMode,
     Refresh,
+    ClearAgent,
+    ClearLogs,
 }

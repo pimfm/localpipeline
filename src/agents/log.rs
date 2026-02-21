@@ -64,6 +64,26 @@ pub fn read_events(agent: Option<AgentName>, limit: Option<usize>) -> Vec<AgentE
     events
 }
 
+pub fn clear_events(agent: AgentName) -> Result<()> {
+    let path = log_path();
+    if !path.exists() {
+        return Ok(());
+    }
+    let contents = std::fs::read_to_string(&path)?;
+    let remaining: Vec<&str> = contents
+        .lines()
+        .filter(|line| {
+            if let Ok(event) = serde_json::from_str::<AgentEvent>(line) {
+                event.agent != agent
+            } else {
+                true // keep unparseable lines
+            }
+        })
+        .collect();
+    std::fs::write(&path, remaining.join("\n") + if remaining.is_empty() { "" } else { "\n" })?;
+    Ok(())
+}
+
 pub fn new_event(
     agent: AgentName,
     event_type: &str,

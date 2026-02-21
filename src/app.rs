@@ -3,7 +3,7 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 
 use crate::agents::dispatch;
-use crate::agents::log::{append_event, new_event, read_events, AgentEvent};
+use crate::agents::log::{append_event, clear_events, new_event, read_events, AgentEvent};
 use crate::agents::retry::MAX_RETRIES;
 use crate::agents::store::AgentStore;
 use crate::config::{self, AppConfig, BoardMapping};
@@ -247,12 +247,46 @@ impl App {
             }
             KeyAction::ToggleAutoMode => {
                 self.auto_mode = !self.auto_mode;
-                let status = if self.auto_mode { "ON" } else { "OFF" };
+                let status = if self.auto_mode { "AUTO" } else { "MANUAL" };
                 self.flash_message =
-                    Some((format!("Auto mode: {status}"), Instant::now()));
+                    Some((format!("Mode: {status}"), Instant::now()));
+                // Log mode change for all agents to see
+                let _ = append_event(&new_event(
+                    AgentName::ALL[0],
+                    "mode-change",
+                    None,
+                    None,
+                    Some(&format!("Switched to {status} mode")),
+                ));
             }
             KeyAction::Refresh => {
                 self.refresh_items().await;
+            }
+            KeyAction::ClearAgent => {
+                if matches!(self.view_mode, ViewMode::Agents | ViewMode::AgentDetail(_)) {
+                    let agent_name = match &self.view_mode {
+                        ViewMode::AgentDetail(name) => *name,
+                        _ => AgentName::ALL[self.selected_agent],
+                    };
+                    self.clear_agent(agent_name).await;
+                }
+            }
+            KeyAction::ClearLogs => {
+                if let ViewMode::AgentDetail(agent_name) = self.view_mode {
+                    let _ = clear_events(agent_name);
+                    self.agent_log_scroll = 0;
+                    self.flash_message = Some((
+                        format!("Cleared logs for {}", agent_name.display_name()),
+                        Instant::now(),
+                    ));
+                    let _ = append_event(&new_event(
+                        agent_name,
+                        "logs-cleared",
+                        None,
+                        None,
+                        Some("Activity log cleared"),
+                    ));
+                }
             }
         }
     }
@@ -273,59 +307,60 @@ impl App {
             let _ = self.store.release(name);
         }
 
-        // Auto-retry errored agents
-        let errored_agents: Vec<AgentName> = self
-            .store
-            .get_all()
-            .iter()
-            .filter(|a| a.status == AgentStatus::Error)
-            .map(|a| a.name)
-            .collect();
-        for name in errored_agents {
-            let retry_count = self.store.increment_retry(name).unwrap_or(0);
-            if retry_count <= MAX_RETRIES {
-                let _ = append_event(&new_event(
-                    name,
-                    "retry",
-                    None,
-                    None,
-                    Some(&format!("Retry {retry_count}/{MAX_RETRIES}")),
-                ));
-                // Re-dispatch with same work item if we have it
-                if let Some(agent) = self.store.get_agent(name) {
-                    if let (Some(item_id), Some(_item_title)) =
-                        (agent.work_item_id.clone(), agent.work_item_title.clone())
-                    {
-                        if let Some(item) = self.items.iter().find(|i| i.id == item_id) {
-                            let item = item.clone();
-                            let _ = dispatch::dispatch(
-                                name,
-                                &item,
-                                &self.repo_root,
-                                &mut self.store,
-                                self.action_tx.clone(),
-                            )
-                            .await;
-                        } else {
-                            // Item not in list anymore, just release
-                            let _ = self.store.release(name);
+        // Auto-retry and auto-dispatch only in auto mode
+        if self.auto_mode {
+            // Auto-retry errored agents
+            let errored_agents: Vec<AgentName> = self
+                .store
+                .get_all()
+                .iter()
+                .filter(|a| a.status == AgentStatus::Error)
+                .map(|a| a.name)
+                .collect();
+            for name in errored_agents {
+                let retry_count = self.store.increment_retry(name).unwrap_or(0);
+                if retry_count <= MAX_RETRIES {
+                    let _ = append_event(&new_event(
+                        name,
+                        "retry",
+                        None,
+                        None,
+                        Some(&format!("Retry {retry_count}/{MAX_RETRIES}")),
+                    ));
+                    // Re-dispatch with same work item if we have it
+                    if let Some(agent) = self.store.get_agent(name) {
+                        if let (Some(item_id), Some(_item_title)) =
+                            (agent.work_item_id.clone(), agent.work_item_title.clone())
+                        {
+                            if let Some(item) = self.items.iter().find(|i| i.id == item_id) {
+                                let item = item.clone();
+                                let _ = dispatch::dispatch(
+                                    name,
+                                    &item,
+                                    &self.repo_root,
+                                    &mut self.store,
+                                    self.action_tx.clone(),
+                                )
+                                .await;
+                            } else {
+                                // Item not in list anymore, just release
+                                let _ = self.store.release(name);
+                            }
                         }
                     }
+                } else {
+                    let _ = append_event(&new_event(
+                        name,
+                        "max-retries",
+                        None,
+                        None,
+                        Some("Max retries reached"),
+                    ));
+                    let _ = self.store.release(name);
                 }
-            } else {
-                let _ = append_event(&new_event(
-                    name,
-                    "max-retries",
-                    None,
-                    None,
-                    Some("Max retries reached"),
-                ));
-                let _ = self.store.release(name);
             }
-        }
 
-        // Auto mode: dispatch to free agents
-        if self.auto_mode {
+            // Auto-dispatch to free agents
             self.auto_dispatch().await;
         }
     }
@@ -405,6 +440,48 @@ impl App {
             None => {
                 self.flash_message = Some(("All agents busy".into(), Instant::now()));
             }
+        }
+    }
+
+    async fn clear_agent(&mut self, agent_name: AgentName) {
+        if let Some(agent) = self.store.get_agent(agent_name) {
+            if agent.status == AgentStatus::Idle {
+                self.flash_message = Some((
+                    format!("{} is already idle", agent_name.display_name()),
+                    Instant::now(),
+                ));
+                return;
+            }
+
+            // Kill process if running
+            if let Some(pid) = agent.pid {
+                unsafe {
+                    libc::kill(pid as i32, libc::SIGTERM);
+                }
+            }
+
+            let work_title = agent.work_item_title.clone();
+            let work_id = agent.work_item_id.clone();
+
+            // Remove item from dispatched set so it can be re-assigned
+            if let Some(item_id) = &work_id {
+                self.dispatched_item_ids.remove(item_id);
+            }
+
+            // Release the agent
+            let _ = self.store.release(agent_name);
+            let _ = append_event(&new_event(
+                agent_name,
+                "cleared",
+                work_id.as_deref(),
+                work_title.as_deref(),
+                Some("Agent cleared by user"),
+            ));
+
+            self.flash_message = Some((
+                format!("{} cleared", agent_name.display_name()),
+                Instant::now(),
+            ));
         }
     }
 
