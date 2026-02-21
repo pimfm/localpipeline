@@ -64,6 +64,7 @@ mod tests {
     fn test_item() -> WorkItem {
         WorkItem {
             id: "TEST-1".to_string(),
+            source_id: None,
             title: "Test task".to_string(),
             description: Some("A test description".to_string()),
             status: Some("Todo".to_string()),
