@@ -1,19 +1,9 @@
 use crate::model::agent::AgentName;
 
-pub fn slugify(title: &str) -> String {
-    let slug: String = title
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let trimmed = slug.trim_matches('-').to_string();
-    trimmed.chars().take(40).collect()
-}
-
-pub fn branch_name(agent: AgentName, item_id: &str, title: &str) -> String {
-    let slug = slugify(title);
-    let short_id = &item_id[..item_id.len().min(8)];
-    format!("agent/{}/{}-{}", agent.as_str(), short_id, slug)
+/// Each agent gets a single persistent branch that gets force-reset to origin/main
+/// before each dispatch. No item-specific branches — agents always push to main.
+pub fn branch_name(agent: AgentName) -> String {
+    format!("agent/{}", agent.as_str())
 }
 
 pub fn worktree_path(repo_root: &str, agent: AgentName) -> String {
@@ -31,15 +21,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_slugify() {
-        assert_eq!(slugify("Add login validation"), "add-login-validation");
-        assert_eq!(slugify("Fix bug #42!"), "fix-bug--42");
-    }
-
-    #[test]
     fn test_branch_name() {
-        let name = branch_name(AgentName::Ember, "LIN-42", "Add login");
-        assert_eq!(name, "agent/ember/LIN-42-add-login");
+        let name = branch_name(AgentName::Ember);
+        assert_eq!(name, "agent/ember");
     }
 
     #[test]

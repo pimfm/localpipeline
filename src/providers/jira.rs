@@ -172,4 +172,52 @@ impl Provider for JiraProvider {
 
         Ok(())
     }
+
+    async fn move_to_in_progress(&self, source_id: &str) -> Result<()> {
+        let url = format!(
+            "{}/rest/api/3/issue/{}/transitions",
+            self.base_url, source_id
+        );
+
+        let resp: serde_json::Value = self
+            .client
+            .get(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .context("Failed to fetch Jira transitions")?
+            .json()
+            .await?;
+
+        let transition_id = resp
+            .get("transitions")
+            .and_then(|t| t.as_array())
+            .and_then(|transitions| {
+                transitions.iter().find_map(|t| {
+                    let category = t.pointer("/to/statusCategory/key")?.as_str()?;
+                    if category == "indeterminate" {
+                        t.get("id")?.as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .context("No transition to In Progress status found")?;
+
+        let body = serde_json::json!({
+            "transition": { "id": transition_id }
+        });
+
+        self.client
+            .post(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to transition Jira issue to In Progress")?;
+
+        Ok(())
+    }
 }

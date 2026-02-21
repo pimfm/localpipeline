@@ -348,14 +348,18 @@ impl App {
             match next_item {
                 Some(item) => {
                     self.dispatched_item_ids.insert(item.id.clone());
-                    let _ = dispatch::dispatch(
+                    if dispatch::dispatch(
                         free_agent,
                         &item,
                         &self.repo_root,
                         &mut self.store,
                         self.action_tx.clone(),
                     )
-                    .await;
+                    .await
+                    .is_ok()
+                    {
+                        self.move_item_to_in_progress(&item).await;
+                    }
                 }
                 None => break,
             }
@@ -382,6 +386,7 @@ impl App {
                 .await
                 {
                     Ok(_) => {
+                        self.move_item_to_in_progress(&item).await;
                         self.flash_message = Some((
                             format!(
                                 "{} dispatched to {}",
@@ -470,6 +475,22 @@ impl App {
 
     pub fn agent_events(&self, name: AgentName) -> Vec<AgentEvent> {
         read_events(Some(name), Some(200))
+    }
+
+    async fn move_item_to_in_progress(&mut self, item: &WorkItem) {
+        if let Some(source_id) = &item.source_id {
+            for provider in &self.providers {
+                if provider.name() == item.source {
+                    if let Err(e) = provider.move_to_in_progress(source_id).await {
+                        self.flash_message = Some((
+                            format!("Failed to move {} to in-progress: {e}", item.id),
+                            Instant::now(),
+                        ));
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     async fn move_item_to_done(&mut self, item: WorkItem) {

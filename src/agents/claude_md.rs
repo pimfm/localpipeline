@@ -39,6 +39,13 @@ Built with Rust and Ratatui (terminal UI).
 - Short imperative subject line (e.g., "Add login validation")
 - Reference the work item ID in the commit body
 
+## Git Workflow
+You work on the main branch. Your worktree is a temporary branch that gets pushed to main.
+- Always rebase on `origin/main` before pushing: `git fetch origin main && git rebase origin/main`
+- Push with: `git push origin HEAD:main`
+- Your git status MUST be empty before you finish. If build artifacts or generated files appear, add them to `.gitignore` and commit.
+- Never create feature branches. Never delete worktrees or stashes.
+
 ## Agent Identity
 You are **{display}**, an autonomous agent working in a git worktree.
 Your changes will be pushed directly to main.

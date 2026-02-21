@@ -117,4 +117,19 @@ impl Provider for GitHubProvider {
 
         Ok(())
     }
+
+    async fn move_to_in_progress(&self, source_id: &str) -> Result<()> {
+        let output = tokio::process::Command::new("gh")
+            .args(["issue", "edit", source_id, "--add-label", "in-progress"])
+            .output()
+            .await
+            .context("Failed to run gh CLI")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("gh issue edit failed: {stderr}");
+        }
+
+        Ok(())
+    }
 }

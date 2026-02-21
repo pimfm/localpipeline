@@ -19,7 +19,7 @@ pub async fn dispatch(
     store: &mut AgentStore,
     action_tx: mpsc::UnboundedSender<Action>,
 ) -> Result<()> {
-    let branch = branch_name(agent_name, &item.id, &item.title);
+    let branch = branch_name(agent_name);
     let wt_path = worktree_path(repo_root, agent_name);
 
     // Mark provisioning

@@ -29,12 +29,15 @@ pub fn build_prompt(item: &WorkItem, agent_name: AgentName) -> String {
 1. Read CLAUDE.md in the project root for conventions and context.
 2. Implement the task described above.
 3. Write tests for your changes.
-4. Run `cargo test` and ensure all tests pass.
+4. Run the project's test command (check CLAUDE.md — typically `cargo test` for Rust or `npm test` for TypeScript). Fix any failures before continuing.
 5. Commit your changes with a message referencing {id}.
-6. Run `git fetch origin main && git rebase origin/main`.
-7. Run `git push origin HEAD:main`.
+6. Check `git status --porcelain`. If untracked files remain (build artifacts, generated files, caches), add them to `.gitignore` and commit. Your git status MUST be completely clean before proceeding.
+7. Run `git fetch origin main && git rebase origin/main`. Resolve any conflicts.
+8. Run `git push origin HEAD:main`.
+9. Verify `git status --porcelain` is empty. If not, fix it — do NOT finish with a dirty working tree.
 
 Work autonomously. Do not ask for clarification — make reasonable decisions.
+You are working on the main branch. All your changes push directly to main.
 
 ## Personality: {tagline}
 - Focus: {focus}

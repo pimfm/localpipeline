@@ -24,6 +24,9 @@ pub trait Provider: Send + Sync {
     async fn move_to_done(&self, _source_id: &str) -> Result<()> {
         Ok(())
     }
+    async fn move_to_in_progress(&self, _source_id: &str) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

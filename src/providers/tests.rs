@@ -6,10 +6,11 @@ use async_trait::async_trait;
 use super::{BoardInfo, Provider};
 use crate::model::work_item::WorkItem;
 
-/// A mock provider that tracks move_to_done calls for testing.
+/// A mock provider that tracks move_to_done and move_to_in_progress calls for testing.
 struct MockProvider {
     provider_name: String,
     done_ids: Arc<Mutex<Vec<String>>>,
+    in_progress_ids: Arc<Mutex<Vec<String>>>,
     should_fail: bool,
 }
 
@@ -18,6 +19,7 @@ impl MockProvider {
         Self {
             provider_name: name.to_string(),
             done_ids: Arc::new(Mutex::new(Vec::new())),
+            in_progress_ids: Arc::new(Mutex::new(Vec::new())),
             should_fail: false,
         }
     }
@@ -47,6 +49,17 @@ impl Provider for MockProvider {
             anyhow::bail!("Mock failure");
         }
         self.done_ids.lock().unwrap().push(source_id.to_string());
+        Ok(())
+    }
+
+    async fn move_to_in_progress(&self, source_id: &str) -> Result<()> {
+        if self.should_fail {
+            anyhow::bail!("Mock failure");
+        }
+        self.in_progress_ids
+            .lock()
+            .unwrap()
+            .push(source_id.to_string());
         Ok(())
     }
 }
@@ -147,6 +160,48 @@ fn work_item_serialization_with_source_id() {
 
     let deserialized: WorkItem = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.source_id, Some("full-id-here".to_string()));
+}
+
+#[tokio::test]
+async fn move_to_in_progress_calls_correct_provider() {
+    let provider = MockProvider::new("Trello");
+    let in_progress_ids = provider.in_progress_ids.clone();
+
+    provider.move_to_in_progress("card-123").await.unwrap();
+
+    assert_eq!(
+        in_progress_ids.lock().unwrap().as_slice(),
+        &["card-123"]
+    );
+}
+
+#[tokio::test]
+async fn move_to_in_progress_default_is_noop() {
+    struct NoopProvider;
+
+    #[async_trait]
+    impl Provider for NoopProvider {
+        fn name(&self) -> &str {
+            "Noop"
+        }
+        async fn fetch_items(&self) -> Result<Vec<WorkItem>> {
+            Ok(vec![])
+        }
+        async fn list_boards(&self) -> Result<Vec<BoardInfo>> {
+            Ok(vec![])
+        }
+    }
+
+    let provider = NoopProvider;
+    assert!(provider.move_to_in_progress("anything").await.is_ok());
+}
+
+#[tokio::test]
+async fn move_to_in_progress_propagates_errors() {
+    let provider = MockProvider::new("Trello").with_failure();
+    let result = provider.move_to_in_progress("card-123").await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Mock failure"));
 }
 
 #[test]

@@ -294,4 +294,51 @@ impl Provider for TrelloProvider {
 
         Ok(())
     }
+
+    async fn move_to_in_progress(&self, source_id: &str) -> Result<()> {
+        let base = "https://api.trello.com/1";
+
+        let card: Card = self
+            .client
+            .get(format!("{base}/cards/{source_id}"))
+            .query(&self.auth_params())
+            .query(&[("fields", "idBoard")])
+            .send()
+            .await
+            .context("Failed to fetch Trello card")?
+            .json()
+            .await?;
+
+        let board_id = card
+            .id_board
+            .context("Card has no board ID")?;
+
+        let lists: Vec<TrelloList> = self
+            .client
+            .get(format!("{base}/boards/{board_id}/lists"))
+            .query(&self.auth_params())
+            .query(&[("fields", "id,name")])
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let in_progress_list = lists
+            .iter()
+            .find(|l| {
+                let lower = l.name.to_lowercase();
+                lower == "in progress" || lower == "doing" || lower == "in-progress"
+            })
+            .context("No 'In Progress' or 'Doing' list found on board")?;
+
+        self.client
+            .put(format!("{base}/cards/{source_id}"))
+            .query(&self.auth_params())
+            .query(&[("idList", &in_progress_list.id)])
+            .send()
+            .await
+            .context("Failed to move Trello card to In Progress")?;
+
+        Ok(())
+    }
 }
