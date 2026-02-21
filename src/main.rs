@@ -56,8 +56,12 @@ async fn main() -> Result<()> {
         event::run_event_loop(event_tx).await;
     });
 
-    // Initial fetch
-    app.refresh_items().await;
+    // Initial fetch: if no board mapping, show picker; otherwise load items
+    if app.view_mode == app::ViewMode::BoardSelection {
+        app.fetch_boards().await;
+    } else {
+        app.refresh_items().await;
+    }
 
     // Main loop
     loop {

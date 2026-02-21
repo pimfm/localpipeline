@@ -1,5 +1,6 @@
 pub mod agent_detail;
 pub mod agent_panel;
+pub mod board_picker;
 pub mod detail_panel;
 pub mod footer;
 pub mod item_list;
@@ -25,6 +26,9 @@ pub fn render(f: &mut Frame, app: &App) {
     let footer_area = vertical[1];
 
     match &app.view_mode {
+        ViewMode::BoardSelection => {
+            board_picker::render(f, main_area, app);
+        }
         ViewMode::Items => {
             // Items (50%) + Detail (25%) + Agents (25%)
             let horizontal = Layout::default()

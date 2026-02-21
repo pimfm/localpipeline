@@ -12,6 +12,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let mut spans = Vec::new();
 
     match &app.view_mode {
+        ViewMode::BoardSelection => {
+            spans.push(hint("↑↓", "navigate"));
+            spans.push(hint("enter", "select"));
+            spans.push(hint("q", "quit"));
+        }
         ViewMode::Items => {
             spans.push(hint("↑↓", "navigate"));
             spans.push(hint("→", "agents"));

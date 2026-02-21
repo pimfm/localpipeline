@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use serde::Deserialize;
 
-use super::Provider;
+use super::{BoardInfo, Provider};
 use crate::model::work_item::WorkItem;
 use crate::util::adf::extract_text_from_adf;
 
@@ -115,5 +115,9 @@ impl Provider for JiraProvider {
             .collect();
 
         Ok(items)
+    }
+
+    async fn list_boards(&self) -> Result<Vec<BoardInfo>> {
+        Ok(vec![])
     }
 }

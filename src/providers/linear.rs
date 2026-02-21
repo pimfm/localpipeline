@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 
-use super::Provider;
+use super::{BoardInfo, Provider};
 use crate::model::work_item::WorkItem;
 
 pub struct LinearProvider {
@@ -148,5 +148,9 @@ impl Provider for LinearProvider {
             .collect();
 
         Ok(items)
+    }
+
+    async fn list_boards(&self) -> Result<Vec<BoardInfo>> {
+        Ok(vec![])
     }
 }

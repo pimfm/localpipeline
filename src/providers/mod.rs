@@ -9,10 +9,18 @@ use async_trait::async_trait;
 use crate::config::AppConfig;
 use crate::model::work_item::WorkItem;
 
+pub struct BoardInfo {
+    pub id: String,
+    pub name: String,
+    pub source: String,
+}
+
 #[async_trait]
 pub trait Provider: Send + Sync {
     fn name(&self) -> &str;
     async fn fetch_items(&self) -> Result<Vec<WorkItem>>;
+    async fn list_boards(&self) -> Result<Vec<BoardInfo>>;
+    fn set_board_filter(&mut self, _board_id: String) {}
 }
 
 pub fn create_providers(config: &AppConfig) -> Vec<Box<dyn Provider>> {

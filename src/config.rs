@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Default)]
@@ -50,6 +51,36 @@ pub fn data_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".localpipeline")
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardMapping {
+    #[serde(rename = "boardId")]
+    pub board_id: String,
+    #[serde(rename = "boardName")]
+    pub board_name: String,
+    pub source: String,
+}
+
+pub fn load_board_mappings() -> HashMap<String, BoardMapping> {
+    let path = data_dir().join("board-mappings.json");
+    if !path.exists() {
+        return HashMap::new();
+    }
+    let contents = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return HashMap::new(),
+    };
+    serde_json::from_str(&contents).unwrap_or_default()
+}
+
+pub fn save_board_mapping(dir: &str, mapping: &BoardMapping) -> Result<()> {
+    let path = data_dir().join("board-mappings.json");
+    let mut mappings = load_board_mappings();
+    mappings.insert(dir.to_string(), mapping.clone());
+    let json = serde_json::to_string_pretty(&mappings)?;
+    std::fs::write(&path, json).with_context(|| "Failed to write board-mappings.json")?;
+    Ok(())
 }
 
 pub fn load_config() -> Result<AppConfig> {

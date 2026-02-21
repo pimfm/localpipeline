@@ -3,13 +3,14 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use super::Provider;
+use super::{BoardInfo, Provider};
 use crate::model::work_item::WorkItem;
 
 pub struct TrelloProvider {
     api_key: String,
     token: String,
     client: reqwest::Client,
+    board_id: Option<String>,
 }
 
 impl TrelloProvider {
@@ -18,6 +19,7 @@ impl TrelloProvider {
             api_key,
             token,
             client: reqwest::Client::new(),
+            board_id: None,
         }
     }
 
@@ -82,28 +84,53 @@ impl Provider for TrelloProvider {
             .json()
             .await?;
 
-        // Fetch boards, lists, and cards in parallel
-        let boards_fut = self
-            .client
-            .get(format!("{base}/members/{}/boards", member.id))
-            .query(&self.auth_params())
-            .query(&[("fields", "id,name"), ("filter", "open")])
-            .send();
+        let (boards, cards) = if let Some(bid) = &self.board_id {
+            // Board-filtered: fetch only cards and board info for the specific board
+            let board_fut = self
+                .client
+                .get(format!("{base}/boards/{bid}"))
+                .query(&self.auth_params())
+                .query(&[("fields", "id,name")])
+                .send();
 
-        let cards_fut = self
-            .client
-            .get(format!("{base}/members/{}/cards", member.id))
-            .query(&self.auth_params())
-            .query(&[(
-                "fields",
-                "id,name,desc,shortUrl,idList,labels,idBoard",
-            )])
-            .send();
+            let cards_fut = self
+                .client
+                .get(format!("{base}/boards/{bid}/cards"))
+                .query(&self.auth_params())
+                .query(&[(
+                    "fields",
+                    "id,name,desc,shortUrl,idList,labels,idBoard",
+                )])
+                .send();
 
-        let (boards_resp, cards_resp) = tokio::try_join!(boards_fut, cards_fut)?;
+            let (board_resp, cards_resp) = tokio::try_join!(board_fut, cards_fut)?;
+            let board: Board = board_resp.json().await?;
+            let cards: Vec<Card> = cards_resp.json().await?;
+            (vec![board], cards)
+        } else {
+            // Unfiltered: fetch all boards and cards
+            let boards_fut = self
+                .client
+                .get(format!("{base}/members/{}/boards", member.id))
+                .query(&self.auth_params())
+                .query(&[("fields", "id,name"), ("filter", "open")])
+                .send();
 
-        let boards: Vec<Board> = boards_resp.json().await?;
-        let cards: Vec<Card> = cards_resp.json().await?;
+            let cards_fut = self
+                .client
+                .get(format!("{base}/members/{}/cards", member.id))
+                .query(&self.auth_params())
+                .query(&[(
+                    "fields",
+                    "id,name,desc,shortUrl,idList,labels,idBoard",
+                )])
+                .send();
+
+            let (boards_resp, cards_resp) = tokio::try_join!(boards_fut, cards_fut)?;
+            let boards: Vec<Board> = boards_resp.json().await?;
+            let cards: Vec<Card> = cards_resp.json().await?;
+            (boards, cards)
+        };
 
         let board_map: HashMap<String, String> =
             boards.into_iter().map(|b| (b.id, b.name)).collect();
@@ -181,5 +208,42 @@ impl Provider for TrelloProvider {
             .collect();
 
         Ok(items)
+    }
+
+    async fn list_boards(&self) -> Result<Vec<BoardInfo>> {
+        let base = "https://api.trello.com/1";
+
+        let member: Member = self
+            .client
+            .get(format!("{base}/members/me"))
+            .query(&self.auth_params())
+            .send()
+            .await
+            .context("Trello members/me failed")?
+            .json()
+            .await?;
+
+        let boards: Vec<Board> = self
+            .client
+            .get(format!("{base}/members/{}/boards", member.id))
+            .query(&self.auth_params())
+            .query(&[("fields", "id,name"), ("filter", "open")])
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        Ok(boards
+            .into_iter()
+            .map(|b| BoardInfo {
+                id: b.id,
+                name: b.name,
+                source: "Trello".into(),
+            })
+            .collect())
+    }
+
+    fn set_board_filter(&mut self, board_id: String) {
+        self.board_id = Some(board_id);
     }
 }
